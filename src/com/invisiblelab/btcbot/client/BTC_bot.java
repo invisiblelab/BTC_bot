@@ -1,74 +1,83 @@
 package com.invisiblelab.btcbot.client;
 
-import com.invisiblelab.btcbot.shared.FieldVerifier;
-import com.sencha.gxt.core.client.util.Margins;
+import com.invisiblelab.btcbot.client.ParserServiceAsync;
+import com.invisiblelab.btcbot.client.ParserService;
 import com.sencha.gxt.widget.core.client.ContentPanel;
-import com.sencha.gxt.widget.core.client.container.VerticalLayoutContainer;
 import com.sencha.gxt.widget.core.client.container.Viewport;
-import com.sencha.gxt.widget.core.client.container.VerticalLayoutContainer.VerticalLayoutData;
+import com.sencha.gxt.widget.core.client.grid.Grid;
+import com.sencha.gxt.widget.core.client.info.Info;
+import java.util.Map;
+import java.util.HashMap;
 import com.google.gwt.core.client.EntryPoint;
 import com.google.gwt.core.client.GWT;
-import com.google.gwt.event.dom.client.ClickEvent;
-import com.google.gwt.event.dom.client.ClickHandler;
-import com.google.gwt.event.dom.client.KeyCodes;
-import com.google.gwt.event.dom.client.KeyUpEvent;
-import com.google.gwt.event.dom.client.KeyUpHandler;
+import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.rpc.AsyncCallback;
-import com.google.gwt.user.client.ui.Button;
-import com.google.gwt.user.client.ui.DialogBox;
 import com.google.gwt.user.client.ui.HTML;
-import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.RootPanel;
-import com.google.gwt.user.client.ui.TextBox;
-import com.google.gwt.user.client.ui.VerticalPanel;
 
-public class BTC_bot implements EntryPoint {
-	
+public class BTC_bot implements EntryPoint{
+
 	private ParserServiceAsync parserService = GWT.create(ParserService.class);
-	
-	public void onModuleLoad() {
-		
-		String label = serviceCall();
-		VerticalLayoutContainer vlc = new VerticalLayoutContainer();
-    	vlc.add(createLabel(label), new VerticalLayoutData(1, 0.25, new Margins(10)));
-    	
-    	ContentPanel panel = new ContentPanel();
-    	panel.setHeading("BTC prices");
-    	panel.add(vlc);
-    	
-    	 Viewport viewPort = new Viewport();
-         viewPort.setWidget(panel);
-         
-    	 RootPanel.get().add(viewPort);	
-	}
-	
-	@SuppressWarnings("rawtypes")
-	private String serviceCall(){
-		
-		if (parserService == null){
-			parserService = GWT.create(ParserService.class);			
-		}
-		
-		 AsyncCallback callback = new AsyncCallback() {
-		      public void onFailure(Throwable caught) {
-		        // TODO: Do something with errors.
-		      }
 
-		      public void onSuccess(Object rslt) {
-		        
-		      }
-		    };
-		    
-		   String rslt = parserService.getActualBtcPrices(callback);
-		   
-		   return rslt;
+	public void onModuleLoad() {
+
+		final ContentPanel panel = new ContentPanel();
+		panel.setHeading("BTC prices");
+		panel.setWidget(new HTML("Stocks are loading."));
+
+		Timer timer = new Timer() {
+			@Override
+			public void run() {
+				serviceCall();
+
+				BasicGrid g = new BasicGrid(actualPrices);
+				Grid grid = g.instance;
+
+				panel.setWidget(grid);
+				panel.forceLayout();
+			}
+		};
+
+		timer.scheduleRepeating(5000);
+
+		Viewport viewPort = new Viewport();
+		viewPort.setWidget(panel);
+
+		RootPanel.get().add(viewPort);	
 	}
-	
-    private Label createLabel(String text){
-    	Label label = new Label(text);
-    	label.getElement().getStyle().setProperty("whitespace", "nowrap");
-    	label.addStyleName("pad-text gray-bg");
-    	
-    	return label;
-    }
+
+	public Map<String, String> actualPrices;
+
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private void serviceCall(){
+
+		if (parserService == null){
+			parserService = GWT.create(ParserService.class);
+		}
+
+		AsyncCallback callback = new AsyncCallback<HashMap<String, String>>() {
+
+			@Override
+			public void onFailure(Throwable caught) {
+
+				GWT.log(caught.getMessage());
+
+			}
+
+			@Override
+			public void onSuccess(HashMap<String, String> result) {	
+				actualPrices = result;
+
+				Info.display("Notification:", "Actual BTC prices loaded!");
+			}		
+		};
+
+		try {
+
+			parserService.getActualBtcPrices(callback);
+
+		} catch (Exception e){
+			System.out.println("Exception thrown.");
+		}
+	}
 }
